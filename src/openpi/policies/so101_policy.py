@@ -2,6 +2,8 @@ import dataclasses
 from typing import Any
 
 import jax.numpy as jnp
+import numpy as np
+import torch
 
 import openpi.models.model as _model
 import openpi.shared.array_typing as at
@@ -21,18 +23,23 @@ class SO101Inputs(_transforms.DataTransformFn):
         # - observation.state (robot joint states)
         # - action (robot actions)
 
+        # Convert tensor to numpy if needed
+        front_image = data["observation/images/front"]
+        if isinstance(front_image, torch.Tensor):
+            front_image = front_image.numpy()
+
         # Map to the expected format for π₀ model
         return {
             "image": {
                 # Use your front camera for all camera views (π₀ expects 3 cameras)
-                "base_0_rgb": data["observation/images/front"],
-                "left_wrist_0_rgb": data["observation/images/front"],  # Duplicate front camera
-                "right_wrist_0_rgb": data["observation/images/front"],  # Duplicate front camera
+                "base_0_rgb": front_image,
+                "left_wrist_0_rgb": front_image,  # Duplicate front camera
+                "right_wrist_0_rgb": front_image,  # Duplicate front camera
             },
-            "image_masks": {
-                "base_0_rgb": jnp.ones(data["observation/images/front"].shape[0], dtype=bool),
-                "left_wrist_0_rgb": jnp.ones(data["observation/images/front"].shape[0], dtype=bool),
-                "right_wrist_0_rgb": jnp.ones(data["observation/images/front"].shape[0], dtype=bool),
+            "image_mask": {
+                "base_0_rgb": jnp.ones(front_image.shape[0], dtype=bool),
+                "left_wrist_0_rgb": jnp.ones(front_image.shape[0], dtype=bool),
+                "right_wrist_0_rgb": jnp.ones(front_image.shape[0], dtype=bool),
             },
             "state": data["observation/state"],
             "actions": data["action"],  # Map dataset's "action" to expected "actions"
