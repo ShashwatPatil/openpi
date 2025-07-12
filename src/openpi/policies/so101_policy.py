@@ -23,7 +23,7 @@ class SO101Inputs(_transforms.DataTransformFn):
 
         # Map to the expected format for π₀ model
         return {
-            "images": {
+            "image": {
                 # Use your front camera for all camera views (π₀ expects 3 cameras)
                 "base_0_rgb": data["observation/images/front"],
                 "left_wrist_0_rgb": data["observation/images/front"],  # Duplicate front camera
