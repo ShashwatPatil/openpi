@@ -588,7 +588,7 @@ _CONFIGS = [
         name="pi0_so101_lora",
         # π₀ model with LoRA for memory-efficient fine-tuning
         model=pi0.Pi0Config(
-            action_dim=6,  # Your dataset has 6 DOF based on info.json
+            action_dim=32,  # Your dataset has 6 DOF based on info.json
             action_horizon=10,  # Adjust based on your needs
             paligemma_variant="gemma_2b_lora",  # Use LoRA variant
             action_expert_variant="gemma_300m_lora",  # Use LoRA variant
