@@ -34,23 +34,26 @@ Filter: TypeAlias = nnx.filterlib.Filter
 
 @dataclasses.dataclass(frozen=True)
 class LeRobotSO101DataConfig(DataConfigFactory):
-    default_prompt: str = ""
+    default_prompt: str = "Grab the red battery and drop in the box"
 
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
         import openpi.policies.so101_policy as so101_policy
 
         # Repack transform to map your dataset keys to expected format
+        # Based on your dataset structure, the keys are:
+        # - observation.images.front
+        # - observation.state
+        # - action
         repack_transform = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(
                     {
-                        # Adjust these mappings based on your actual dataset structure
-                        "observation/image": "observation/image",  # your main camera
-                        "observation/wrist_image": "observation/wrist_image",  # if you have wrist camera
-                        "observation/state": "observation/state",  # robot joint states
-                        "actions": "action",  # your action key
-                        "prompt": "prompt",  # task description
+                        "observation/images/front": "observation.images.front",
+                        "observation/state": "observation.state",
+                        "action": "action",
+                        # Add prompt if it exists in your dataset, otherwise use default
+                        "prompt": "prompt",  # This will use default if not found
                     }
                 )
             ]
@@ -63,8 +66,8 @@ class LeRobotSO101DataConfig(DataConfigFactory):
         )
 
         # Apply delta actions if your dataset has absolute actions
-        # Adjust the mask based on your action space (e.g., 6 joints + 1 gripper)
-        delta_action_mask = _transforms.make_bool_mask(6, -1)  # delta for joints, absolute for gripper
+        # For SO101 with 6 DOF arm, assume all are joint positions that should be delta
+        delta_action_mask = _transforms.make_bool_mask(6)  # All 6 actions as delta
         data_transforms = data_transforms.push(
             inputs=[_transforms.DeltaActions(delta_action_mask)],
             outputs=[_transforms.AbsoluteActions(delta_action_mask)],
