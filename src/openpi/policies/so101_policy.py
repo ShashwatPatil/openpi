@@ -54,9 +54,8 @@ class SO101Inputs(_transforms.DataTransformFn):
             else:
                 front_image = front_image.astype(np.uint8)
 
-        # Ensure we have the right shape (H, W, C) and add batch dimension
-        if front_image.ndim == 3:
-            front_image = front_image[np.newaxis, :]  # Add batch dimension: (H, W, C) -> (1, H, W, C)
+        # DON'T add batch dimension here - the dataloader will handle batching
+        # The image should be (H, W, C) not (1, H, W, C)
 
         print(f"DEBUG: final front_image shape: {front_image.shape}, dtype: {front_image.dtype}")
 
@@ -69,9 +68,10 @@ class SO101Inputs(_transforms.DataTransformFn):
                 "right_wrist_0_rgb": front_image,  # Duplicate front camera
             },
             "image_mask": {
-                "base_0_rgb": jnp.ones(front_image.shape[0], dtype=bool),
-                "left_wrist_0_rgb": jnp.ones(front_image.shape[0], dtype=bool),
-                "right_wrist_0_rgb": jnp.ones(front_image.shape[0], dtype=bool),
+                # These should be scalar booleans, not arrays with batch dimension
+                "base_0_rgb": True,
+                "left_wrist_0_rgb": True,
+                "right_wrist_0_rgb": True,
             },
             "state": data["observation/state"],
             "actions": data["action"],  # Map dataset's "action" to expected "actions"
