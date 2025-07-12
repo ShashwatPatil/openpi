@@ -23,10 +23,42 @@ class SO101Inputs(_transforms.DataTransformFn):
         # - observation.state (robot joint states)
         # - action (robot actions)
 
-        # Convert tensor to numpy if needed
+        # Get the front image and ensure proper format
         front_image = data["observation/images/front"]
+
+        # Convert tensor to numpy if needed and ensure proper shape
         if isinstance(front_image, torch.Tensor):
             front_image = front_image.numpy()
+
+        # Ensure the image is numpy array
+        front_image = np.asarray(front_image)
+
+        # Debug: print image info
+        print(f"DEBUG: front_image shape: {front_image.shape}, dtype: {front_image.dtype}")
+
+        # Expected shape from info.json: [480, 640, 3]
+        # If we have a different shape, we need to handle it
+        if front_image.ndim == 4 and front_image.shape[0] == 1:
+            # Remove batch dimension if present: (1, H, W, C) -> (H, W, C)
+            front_image = front_image[0]
+        elif front_image.ndim == 3 and front_image.shape[-1] != 3:
+            # If shape is (C, H, W), transpose to (H, W, C)
+            if front_image.shape[0] == 3:
+                front_image = np.transpose(front_image, (1, 2, 0))
+
+        # Ensure image is uint8 format (PIL expects this)
+        if front_image.dtype != np.uint8:
+            # If float image, convert to uint8 (assuming values are in [0, 1] or [0, 255])
+            if front_image.max() <= 1.0:
+                front_image = (front_image * 255).astype(np.uint8)
+            else:
+                front_image = front_image.astype(np.uint8)
+
+        # Ensure we have the right shape (H, W, C) and add batch dimension
+        if front_image.ndim == 3:
+            front_image = front_image[np.newaxis, :]  # Add batch dimension: (H, W, C) -> (1, H, W, C)
+
+        print(f"DEBUG: final front_image shape: {front_image.shape}, dtype: {front_image.dtype}")
 
         # Map to the expected format for π₀ model
         return {
