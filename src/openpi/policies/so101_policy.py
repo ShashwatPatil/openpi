@@ -16,7 +16,7 @@ class SO101Inputs(_transforms.DataTransformFn):
     model_type: _model.ModelType = _model.ModelType.PI0
 
     def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
-        # Based on your dataset structure, you have:
+        # Based on your dataset structure from info.json:
         # - observation.images.front (your camera)
         # - observation.state (robot joint states)
         # - action (robot actions)
@@ -35,7 +35,7 @@ class SO101Inputs(_transforms.DataTransformFn):
                 "right_wrist_0_rgb": jnp.ones(data["observation/images/front"].shape[0], dtype=bool),
             },
             "state": data["observation/state"],
-            "actions": data["action"],
+            "actions": data["action"],  # Map dataset's "action" to expected "actions"
             "prompt": data.get("prompt", "Grab the red battery and drop in the box"),
         }
 
@@ -46,5 +46,5 @@ class SO101Outputs(_transforms.DataTransformFn):
 
     def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
         return {
-            "actions": data["action"],
+            "actions": data["actions"],  # Output "actions" (plural)
         }

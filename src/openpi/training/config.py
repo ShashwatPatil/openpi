@@ -261,19 +261,18 @@ class LeRobotSO101DataConfig(DataConfigFactory):
         import openpi.policies.so101_policy as so101_policy
 
         # Repack transform to map your dataset keys to expected format
-        # Based on your dataset structure, the keys are:
+        # Based on your info.json, the keys are:
         # - observation.images.front
         # - observation.state
-        # - action
+        # - action (singular)
         repack_transform = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(
                     {
                         "observation/images/front": "observation.images.front",
                         "observation/state": "observation.state",
-                        "action": "action",
-                        # Add prompt if it exists in your dataset, otherwise use default
-                        "prompt": "prompt",  # This will use default if not found
+                        "action": "action",  # Your dataset uses "action" (singular)
+                        "prompt": "prompt",  # Use default if not found
                     }
                 )
             ]
@@ -286,8 +285,9 @@ class LeRobotSO101DataConfig(DataConfigFactory):
         )
 
         # Apply delta actions if your dataset has absolute actions
-        # For SO101 with 6 DOF arm, assume all are joint positions that should be delta
-        delta_action_mask = _transforms.make_bool_mask(6)  # All 6 actions as delta
+        # Based on your info.json, you have 6 DOF (shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper)
+        # Convert first 5 joints to delta, keep gripper absolute
+        delta_action_mask = _transforms.make_bool_mask(5, -1)  # Delta for 5 joints, absolute for gripper
         data_transforms = data_transforms.push(
             inputs=[_transforms.DeltaActions(delta_action_mask)],
             outputs=[_transforms.AbsoluteActions(delta_action_mask)],
@@ -301,6 +301,7 @@ class LeRobotSO101DataConfig(DataConfigFactory):
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
+            action_sequence_keys=("action",),  # Your dataset uses "action" key
         )
 
 
@@ -587,8 +588,8 @@ _CONFIGS = [
         name="pi0_so101_lora",
         # π₀ model with LoRA for memory-efficient fine-tuning
         model=pi0.Pi0Config(
-            action_dim=6,  # Adjust to your SO101's action dimension (joints + gripper)
-            action_horizon=10,  # Adjust based on your needs (5-15 typically)
+            action_dim=6,  # Your dataset has 6 DOF based on info.json
+            action_horizon=10,  # Adjust based on your needs
             paligemma_variant="gemma_2b_lora",  # Use LoRA variant
             action_expert_variant="gemma_300m_lora",  # Use LoRA variant
         ),
@@ -598,12 +599,13 @@ _CONFIGS = [
             default_prompt="Grab the red battery and drop in the box",
             base_config=DataConfig(
                 prompt_from_task=True,  # Load prompts from dataset if available
+                action_sequence_keys=("action",),  # Use your dataset's "action" key
             ),
         ),
         # Load π₀ base model checkpoint
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
         # Training hyperparameters
-        num_train_steps=1_00_000,
+        num_train_steps=30_000,
         batch_size=32,
         lr_schedule=_optimizer.CosineDecaySchedule(
             warmup_steps=1_000,
