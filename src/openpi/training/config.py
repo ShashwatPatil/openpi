@@ -33,58 +33,6 @@ Filter: TypeAlias = nnx.filterlib.Filter
 
 
 @dataclasses.dataclass(frozen=True)
-class LeRobotSO101DataConfig(DataConfigFactory):
-    default_prompt: str = "Grab the red battery and drop in the box"
-
-    @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
-        import openpi.policies.so101_policy as so101_policy
-
-        # Repack transform to map your dataset keys to expected format
-        # Based on your dataset structure, the keys are:
-        # - observation.images.front
-        # - observation.state
-        # - action
-        repack_transform = _transforms.Group(
-            inputs=[
-                _transforms.RepackTransform(
-                    {
-                        "observation/images/front": "observation.images.front",
-                        "observation/state": "observation.state",
-                        "action": "action",
-                        # Add prompt if it exists in your dataset, otherwise use default
-                        "prompt": "prompt",  # This will use default if not found
-                    }
-                )
-            ]
-        )
-
-        # Data transforms for your SO101 robot
-        data_transforms = _transforms.Group(
-            inputs=[so101_policy.SO101Inputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
-            outputs=[so101_policy.SO101Outputs()],
-        )
-
-        # Apply delta actions if your dataset has absolute actions
-        # For SO101 with 6 DOF arm, assume all are joint positions that should be delta
-        delta_action_mask = _transforms.make_bool_mask(6)  # All 6 actions as delta
-        data_transforms = data_transforms.push(
-            inputs=[_transforms.DeltaActions(delta_action_mask)],
-            outputs=[_transforms.AbsoluteActions(delta_action_mask)],
-        )
-
-        # Model transforms (standard preprocessing)
-        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
-
-        return dataclasses.replace(
-            self.create_base_config(assets_dirs),
-            repack_transforms=repack_transform,
-            data_transforms=data_transforms,
-            model_transforms=model_transforms,
-        )
-
-
-@dataclasses.dataclass(frozen=True)
 class AssetsConfig:
     """Determines the location of assets (e.g., norm stats) that will be used to set up the data pipeline.
 
@@ -301,6 +249,58 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
             data_transforms=data_transforms,
             model_transforms=model_transforms,
             action_sequence_keys=self.action_sequence_keys,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotSO101DataConfig(DataConfigFactory):
+    default_prompt: str = "Grab the red battery and drop in the box"
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        import openpi.policies.so101_policy as so101_policy
+
+        # Repack transform to map your dataset keys to expected format
+        # Based on your dataset structure, the keys are:
+        # - observation.images.front
+        # - observation.state
+        # - action
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/images/front": "observation.images.front",
+                        "observation/state": "observation.state",
+                        "action": "action",
+                        # Add prompt if it exists in your dataset, otherwise use default
+                        "prompt": "prompt",  # This will use default if not found
+                    }
+                )
+            ]
+        )
+
+        # Data transforms for your SO101 robot
+        data_transforms = _transforms.Group(
+            inputs=[so101_policy.SO101Inputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
+            outputs=[so101_policy.SO101Outputs()],
+        )
+
+        # Apply delta actions if your dataset has absolute actions
+        # For SO101 with 6 DOF arm, assume all are joint positions that should be delta
+        delta_action_mask = _transforms.make_bool_mask(6)  # All 6 actions as delta
+        data_transforms = data_transforms.push(
+            inputs=[_transforms.DeltaActions(delta_action_mask)],
+            outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+        )
+
+        # Model transforms (standard preprocessing)
+        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
         )
 
 
