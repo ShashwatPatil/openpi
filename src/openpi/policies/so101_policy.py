@@ -9,7 +9,7 @@ import openpi.transforms as _transforms
 
 
 @dataclasses.dataclass(frozen=True)
-class SO101Inputs(_transforms.Transform):
+class SO101Inputs(_transforms.DataTransformFn):
     """Transform inputs from SO101 robot environment to model format."""
 
     action_dim: int
@@ -41,7 +41,7 @@ class SO101Inputs(_transforms.Transform):
 
 
 @dataclasses.dataclass(frozen=True)
-class SO101Outputs(_transforms.Transform):
+class SO101Outputs(_transforms.DataTransformFn):
     """Transform model outputs to SO101 robot format."""
 
     def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
