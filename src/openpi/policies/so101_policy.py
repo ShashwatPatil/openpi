@@ -35,7 +35,7 @@ class SO101Inputs(_transforms.DataTransformFn):
                 "right_wrist_0_rgb": jnp.ones(data["observation/images/front"].shape[0], dtype=bool),
             },
             "state": data["observation/state"],
-            "action": data["action"],
+            "actions": data["action"],
             "prompt": data.get("prompt", "Grab the red battery and drop in the box"),
         }
 
@@ -46,5 +46,5 @@ class SO101Outputs(_transforms.DataTransformFn):
 
     def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
         return {
-            "action": data["action"],
+            "actions": data["action"],
         }
