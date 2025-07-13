@@ -592,7 +592,6 @@ _CONFIGS = [
             action_horizon=10,  # Adjust based on your needs
             paligemma_variant="gemma_2b_lora",  # Use LoRA variant
             action_expert_variant="gemma_300m_lora",  # Use LoRA variant
-            use_scan=True,  # This enables gradient checkpointing to save memory
         ),
         # Your SO101 dataset configuration
         data=LeRobotSO101DataConfig(
