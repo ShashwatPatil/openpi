@@ -255,35 +255,36 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
 @dataclasses.dataclass(frozen=True)
 class LeRobotSO101DataConfig(DataConfigFactory):
     default_prompt: str = "Grab the red battery and drop in the box"
-
+    
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
         import openpi.policies.so101_policy as so101_policy
-
+        
         # Repack transform to map your dataset keys to expected format
         # Based on your info.json, the keys are:
         # - observation.images.front
-        # - observation.state
+        # - observation.state  
         # - action (singular)
         repack_transform = _transforms.Group(
             inputs=[
-                _transforms.RepackTransform(
-                    {
-                        "observation/images/front": "observation.images.front",
-                        "observation/state": "observation.state",
-                        "action": "action",  # Your dataset uses "action" (singular)
-                        "prompt": "prompt",  # Use default if not found
-                    }
-                )
+                _transforms.RepackTransform({
+                    "observation/images/front": "observation.images.front",
+                    "observation/state": "observation.state", 
+                    "action": "action",  # Your dataset uses "action" (singular)
+                    "prompt": "prompt",  # Use default if not found
+                })
             ]
         )
-
+        
         # Data transforms for your SO101 robot
         data_transforms = _transforms.Group(
-            inputs=[so101_policy.SO101Inputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
+            inputs=[so101_policy.SO101Inputs(
+                action_dim=model_config.action_dim, 
+                model_type=model_config.model_type
+            )],
             outputs=[so101_policy.SO101Outputs()],
         )
-
+        
         # Apply delta actions if your dataset has absolute actions
         # Based on your info.json, you have 6 DOF (shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper)
         # Convert first 5 joints to delta, keep gripper absolute
@@ -292,10 +293,10 @@ class LeRobotSO101DataConfig(DataConfigFactory):
             inputs=[_transforms.DeltaActions(delta_action_mask)],
             outputs=[_transforms.AbsoluteActions(delta_action_mask)],
         )
-
+        
         # Model transforms (standard preprocessing)
         model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
-
+        
         return dataclasses.replace(
             self.create_base_config(assets_dirs),
             repack_transforms=repack_transform,
@@ -583,6 +584,7 @@ _CONFIGS = [
             ),
         ),
     ),
+
     # My config for lora fine-tuning on SO101 robot.
     TrainConfig(
         name="pi0_so101_lora",
@@ -591,7 +593,8 @@ _CONFIGS = [
             action_dim=32,  # Your dataset has 6 DOF based on info.json
             action_horizon=10,  # Adjust based on your needs
             paligemma_variant="gemma_2b_lora",  # Use LoRA variant
-            action_expert_variant="gemma_300m_lora",  # Use LoRA variant
+            action_expert_variant="gemma_300m_lora"  # Use LoRA variant
+            use_scan=True, # This enables gradient checkpointing to save memory
         ),
         # Your SO101 dataset configuration
         data=LeRobotSO101DataConfig(
@@ -606,7 +609,7 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
         # Training hyperparameters
         num_train_steps=30_000,
-        batch_size=32,
+        batch_size=16,
         lr_schedule=_optimizer.CosineDecaySchedule(
             warmup_steps=1_000,
             peak_lr=1e-4,
@@ -615,10 +618,12 @@ _CONFIGS = [
         ),
         # LoRA-specific settings
         freeze_filter=pi0.Pi0Config(
-            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+            paligemma_variant="gemma_2b_lora", 
+            action_expert_variant="gemma_300m_lora"
         ).get_freeze_filter(),
         ema_decay=None,  # Turn off EMA for LoRA
     ),
+
     #
     # Fine-tuning Libero configs.
     #
