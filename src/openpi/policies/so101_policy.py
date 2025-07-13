@@ -14,7 +14,7 @@ import openpi.transforms as _transforms
 class SO101Inputs(_transforms.DataTransformFn):
     """Transform inputs from SO101 robot environment to model format."""
 
-    action_dim: int
+    action_dim: int  # This will be 32 from the model config
     model_type: _model.ModelType = _model.ModelType.PI0
 
     def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -36,21 +36,11 @@ class SO101Inputs(_transforms.DataTransformFn):
             else:
                 front_image = front_image.astype(np.uint8)
 
-        # Handle action padding: your dataset has 6 DOF, but model expects 32
-        so101_actions = np.asarray(data["action"])  # Shape: (..., 6)
+        # Handle state: pad from 6 to 32 dimensions
+        so101_state = np.asarray(data["observation/state"])  # Shape: [6]
+        state = _transforms.pad_to_dim(so101_state, self.action_dim)  # Pad to [32]
 
-        # Pad actions to 32 dimensions (fill with zeros)
-        if so101_actions.shape[-1] == 6:
-            # Pad the last dimension from 6 to 32
-            padding_shape = list(so101_actions.shape)
-            padding_shape[-1] = 32 - 6  # 26 zeros to pad
-            padding = np.zeros(padding_shape, dtype=so101_actions.dtype)
-            padded_actions = np.concatenate([so101_actions, padding], axis=-1)
-        else:
-            padded_actions = so101_actions
-
-        # Map to the expected format for π₀ model
-        return {
+        inputs = {
             "image": {
                 "base_0_rgb": front_image,
                 "left_wrist_0_rgb": front_image,
@@ -61,10 +51,18 @@ class SO101Inputs(_transforms.DataTransformFn):
                 "left_wrist_0_rgb": True,
                 "right_wrist_0_rgb": True,
             },
-            "state": data["observation/state"],
-            "actions": padded_actions,  # Now 32-dimensional
+            "state": state,  # Now 32-dimensional
             "prompt": data.get("prompt", "Grab the red battery and drop in the box"),
         }
+
+        # Actions are only available during training
+        if "actions" in data:
+            so101_actions = np.asarray(data["action"])  # Shape: [..., 6]
+            # Pad actions from 6 to 32 dimensions
+            actions = _transforms.pad_to_dim(so101_actions, self.action_dim)  # Pad to [..., 32]
+            inputs["actions"] = actions
+
+        return inputs
 
 
 @dataclasses.dataclass(frozen=True)
@@ -73,7 +71,7 @@ class SO101Outputs(_transforms.DataTransformFn):
 
     def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
         # Extract only the first 6 dimensions (your SO101 robot's DOF)
-        full_actions = data["actions"]  # Shape: (..., 32)
+        full_actions = np.asarray(data["actions"])  # Shape: [..., 32]
         so101_actions = full_actions[..., :6]  # Take only first 6 dimensions
 
         return {
