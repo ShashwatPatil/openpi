@@ -56,7 +56,7 @@ class SO101Inputs(_transforms.DataTransformFn):
         }
 
         # Actions are only available during training
-        if "actions" in data:
+        if "action" in data:
             so101_actions = np.asarray(data["action"])  # Shape: [..., 6]
             # Pad actions from 6 to 32 dimensions
             actions = _transforms.pad_to_dim(so101_actions, self.action_dim)  # Pad to [..., 32]
