@@ -25,8 +25,8 @@ class SO101Inputs(transforms.DataTransformFn):
         
         inputs = {
             "state": state,
-            "images": images,
-            "image_masks": image_masks,
+            "image": images,
+            "image_mask": image_masks,
         }
 
         if "actions" in data:
@@ -34,7 +34,7 @@ class SO101Inputs(transforms.DataTransformFn):
             inputs["actions"] = transforms.pad_to_dim(actions, self.action_dim)
 
         if "task" in data:
-            inputs["task"] = data["task"]
+            inputs["prompt"] = data["task"]
         
         return inputs
     
