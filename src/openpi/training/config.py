@@ -717,7 +717,7 @@ _CONFIGS = [
         data=LerobotSO101Config(
             repo_id="SGPatil/so101_pick_drop",
             assets=AssetsConfig(
-                assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
+                # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
                 asset_id="so101",
             ),
             default_prompt="do something",
