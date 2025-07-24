@@ -11,9 +11,6 @@ def _parse_image(image) -> np.ndarray:
     """Parse and validate image format."""
     image = np.asarray(image)
     
-    # Debug: Print the shape to understand what we're getting
-    print(f"Raw image shape: {image.shape}, dtype: {image.dtype}")
-    
     # Handle video data (if it's encoded)
     if image.ndim == 1:
         # This might be encoded video data - you'll need to decode it
