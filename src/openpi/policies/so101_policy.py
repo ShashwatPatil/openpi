@@ -46,8 +46,8 @@ class SO101Inputs(transforms.DataTransformFn):
         state = transforms.pad_to_dim(data["state"], self.action_dim)
         base_image = _parse_image(data["images"]["front"])
 
-        images = {"base_0_rgb": base_image}  # Use standard naming
-        image_masks = {"base_0_rgb": np.True_}
+        images = {"base": base_image}  # Use standard naming
+        image_masks = {"base": np.True_}
         
         inputs = {
             "state": state,
