@@ -45,31 +45,9 @@ class SO101Inputs(transforms.DataTransformFn):
     model_type: _model.ModelType = _model.ModelType.PI0
 
     def __call__(self, data: dict) -> dict:
-        print("=== DEBUG SO101 Input ===")
-        print(f"Available keys: {list(data.keys())}")
-        if "images" in data:
-            print(f"Image keys: {list(data['images'].keys())}")
-            front_image = data["images"]["front"]
-            print(f"Front image type: {type(front_image)}")
-            print(f"Front image shape: {getattr(front_image, 'shape', 'No shape attr')}")
-            print(f"Front image dtype: {getattr(front_image, 'dtype', 'No dtype attr')}")
-            if hasattr(front_image, 'shape') and len(front_image.shape) > 0:
-                print(f"First few values: {front_image.flat[:10] if hasattr(front_image, 'flat') else 'No flat attr'}")
-        print("========================")
-        
+
         state = transforms.pad_to_dim(data["state"], self.action_dim)
-
-        # Parse and validate the image
         base_image = _parse_image(data["images"]["front"])
-        print("=== DEBUG base_image ===")
-        print(f"Image keys: {list(data['images'].keys())}")
-        print(f"Base image type: {type(base_image)}")
-        print(f"Base image shape: {getattr(base_image, 'shape', 'No shape attr')}")
-        print(f"Base image dtype: {getattr(base_image, 'dtype', 'No dtype attr')}")
-        if hasattr(base_image, 'shape') and len(base_image.shape) > 0:
-            print(f"First few values: {base_image.flat[:10] if hasattr(base_image, 'flat') else 'No flat attr'}")
-        print("========================")
-
 
         images = {"base_0_rgb": base_image}  # Use standard naming
         image_masks = {"base_0_rgb": np.True_}
