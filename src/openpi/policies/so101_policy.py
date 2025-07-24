@@ -18,7 +18,7 @@ class SO101Inputs(transforms.DataTransformFn):
     def __call__(self, data: dict) -> dict:
         state = transforms.pad_to_dim(data["state"], self.action_dim)
 
-        base_image = np.asarray(data["images"])
+        base_image = np.asarray(data["images"]["front"])
 
         images = { "base": base_image }
         image_masks = { "base": np.True_ }
