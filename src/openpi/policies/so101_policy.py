@@ -61,6 +61,15 @@ class SO101Inputs(transforms.DataTransformFn):
 
         # Parse and validate the image
         base_image = _parse_image(data["images"]["front"])
+        print("=== DEBUG base_image ===")
+        print(f"Image keys: {list(data['images'].keys())}")
+        print(f"Base image type: {type(base_image)}")
+        print(f"Base image shape: {getattr(base_image, 'shape', 'No shape attr')}")
+        print(f"Base image dtype: {getattr(base_image, 'dtype', 'No dtype attr')}")
+        if hasattr(base_image, 'shape') and len(base_image.shape) > 0:
+            print(f"First few values: {base_image.flat[:10] if hasattr(base_image, 'flat') else 'No flat attr'}")
+        print("========================")
+
 
         images = {"base_0_rgb": base_image}  # Use standard naming
         image_masks = {"base_0_rgb": np.True_}
