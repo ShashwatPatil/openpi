@@ -18,7 +18,15 @@ import openpi.transforms as transforms
 
 class RemoveStrings(transforms.DataTransformFn):
     def __call__(self, x: dict) -> dict:
-        return {k: v for k, v in x.items() if not np.issubdtype(np.asarray(v).dtype, np.str_)}
+        result = {}
+        for k, v in x.items():
+            # Skip problematic columns
+            if k in ["timestamp", "frame_index", "episode_index", "index", "task_index"]:
+                continue
+            # Skip string columns
+            if not np.issubdtype(np.asarray(v).dtype, np.str_):
+                result[k] = v
+        return result
 
 
 def create_torch_dataloader(
