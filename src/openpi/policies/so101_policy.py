@@ -42,17 +42,27 @@ class SO101Inputs(transforms.DataTransformFn):
     model_type: _model.ModelType = _model.ModelType.PI0
 
     def __call__(self, data: dict) -> dict:
-
         state = transforms.pad_to_dim(data["state"], self.action_dim)
+
+        # Parse and validate the image
         base_image = _parse_image(data["images"]["front"])
 
-        images = {"base": base_image}  # Use standard naming
-        image_masks = {"base": np.True_}
+        # Provide all expected camera views (duplicate the single camera for missing views)
+        images = {
+            "front_0_rgb": base_image,           # Main camera
+            "left_wrist_0_rgb": base_image,     # Duplicate for left wrist camera
+            "right_wrist_0_rgb": base_image,    # Duplicate for right wrist camera
+        }
+        image_masks = {
+            "front_0_rgb": np.True_,
+            "left_wrist_0_rgb": np.True_,      # You might want to set these to False
+            "right_wrist_0_rgb": np.True_,     # if you don't want to use duplicated images
+        }
         
         inputs = {
             "state": state,
-            "image": images,        # Fixed: use "image" not "images"
-            "image_mask": image_masks,  # Fixed: use "image_mask" not "image_masks"
+            "image": images,
+            "image_mask": image_masks,
         }
 
         if "actions" in data:
