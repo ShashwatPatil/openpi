@@ -49,14 +49,10 @@ class SO101Inputs(transforms.DataTransformFn):
 
         # Provide all expected camera views (duplicate the single camera for missing views)
         images = {
-            "front_0_rgb": base_image,           # Main camera
-            "left_wrist_0_rgb": base_image,     # Duplicate for left wrist camera
-            "right_wrist_0_rgb": base_image,    # Duplicate for right wrist camera
+            "front_0_rgb": base_image,
         }
         image_masks = {
             "front_0_rgb": np.True_,
-            "left_wrist_0_rgb": np.True_,      # You might want to set these to False
-            "right_wrist_0_rgb": np.True_,     # if you don't want to use duplicated images
         }
         
         inputs = {
