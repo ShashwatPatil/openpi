@@ -265,10 +265,7 @@ class LerobotSO101Config(DataConfigFactory):
             inputs=[
                 _transforms.RepackTransform(
                     {
-                        "images": {
-                            "front": "observation.images.front",
-                            "wrist": "observation.images.wrist"
-                        },
+                        "images": {"front": "observation.images.front"},
                         "state": "observation.state",
                         "actions": "action",
                     }
@@ -719,10 +716,10 @@ _CONFIGS = [
         name="pi0_so101_lora",
         model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=LerobotSO101Config(
-            repo_id="SGPatil/so101-table-cleanup-train",
+            repo_id="SGPatil/so101_pick_drop",
             assets=AssetsConfig(
-            #     # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
-                asset_id="SGPatil/so101-table-cleanup-train",
+                # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
+                asset_id="SGPatil/so101_pick_drop",
             ),
             default_prompt="do something",
             repack_transforms=_transforms.Group(
@@ -731,7 +728,6 @@ _CONFIGS = [
                         {
                             "images": {
                                 "front": "observation.images.front",
-                                "wrist": "observation.images.wrist",
                             },
                             "state": "observation.state",
                             "actions": "action",
@@ -753,7 +749,7 @@ _CONFIGS = [
         name="pi0_so101",
         model=pi0.Pi0Config(action_dim=8),
         data=LerobotSO101Config(
-            repo_id="SGPatil/so101-table-cleanup-train",
+            repo_id="SGPatil/so101_pick_drop",
             default_prompt="do something",
             repack_transforms=_transforms.Group(
                 inputs=[
@@ -761,7 +757,6 @@ _CONFIGS = [
                         {
                             "images": {
                                 "front": "observation.images.front",
-                                "wrist": "observation.images.wrist",
                             },
                             "state": "observation.state",
                             "actions": "action",
@@ -771,7 +766,7 @@ _CONFIGS = [
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
-        num_train_steps=10_000,
+        num_train_steps=20_000,
         batch_size=32,
     ),
     #
