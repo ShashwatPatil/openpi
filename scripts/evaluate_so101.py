@@ -17,17 +17,7 @@ def evaluate_model(checkpoint_path: str, config_name: str = "pi0_so101_lora", nu
     config = _config.get_config(config_name)
     config = dataclasses.replace(config, batch_size=1)  # Use small batch size
 
-    # Load trained model
-    if checkpoint_path.startswith("gs://") or checkpoint_path.startswith("./checkpoints"):
-        # Load from checkpoint directory
-        if checkpoint_path.startswith("gs://"):
-            checkpoint_dir = download.maybe_download(checkpoint_path)
-        else:
-            checkpoint_dir = checkpoint_path
-        params = _model.restore_params(checkpoint_dir + "/params")
-    else:
-        # Load from local path
-        params = _model.restore_params(checkpoint_path)
+    params = _model.restore_params(checkpoint_path)
 
     model = config.model.load(params)
 
@@ -74,5 +64,5 @@ def evaluate_model(checkpoint_path: str, config_name: str = "pi0_so101_lora", nu
 
 if __name__ == "__main__":
     # Example usage
-    checkpoint_path = "../pi0_lora_so101_checkpoints/so101_experiment/19999"  # Adjust path
+    checkpoint_path = "../pi0_lora_so101_checkpoints/so101_experiment/19999/params"  # Adjust path
     results = evaluate_model(checkpoint_path)
