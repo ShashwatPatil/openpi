@@ -64,5 +64,5 @@ def evaluate_model(checkpoint_path: str, config_name: str = "pi0_so101_lora", nu
 
 if __name__ == "__main__":
     # Example usage
-    checkpoint_path = "../pi0_lora_so101_checkpoints/so101_experiment/19999/params"  # Adjust path
+    checkpoint_path = "./pi0_lora_so101_checkpoints/so101_experiment/19999/params"  # Adjust path
     results = evaluate_model(checkpoint_path)
