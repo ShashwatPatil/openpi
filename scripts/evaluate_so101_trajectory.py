@@ -158,16 +158,58 @@ def evaluate_single_trajectory(
 
             # Get policy prediction
             result = policy.infer(obs_dict)
-            pred_action = result["actions"][0]  # First action from chunk
+
+            # Debug: print the result structure for the first few steps
+            if step < 3:
+                print(f"Step {step} - Result keys: {result.keys()}")
+                print(
+                    f"Step {step} - Actions shape/type: {type(result['actions'])}, {getattr(result['actions'], 'shape', 'no shape')}"
+                )
+                if hasattr(result["actions"], "shape"):
+                    print(f"Step {step} - Actions shape: {result['actions'].shape}")
+                    print(f"Step {step} - Actions value: {result['actions']}")
+
+            # Handle different action output formats
+            actions = result["actions"]
+
+            # Convert to numpy if it's a JAX array
+            if hasattr(actions, "shape"):
+                actions_np = np.asarray(actions)
+            else:
+                actions_np = np.array(actions)
+
+            # Handle different action shapes
+            if actions_np.ndim == 0:
+                # 0-d tensor (scalar) - this shouldn't happen for robot actions
+                print(f"Warning: Got scalar action at step {step}: {actions_np}")
+                continue
+            elif actions_np.ndim == 1:
+                # 1-d array (single action vector) - this is what we expect
+                pred_action = actions_np
+            elif actions_np.ndim == 2:
+                # 2-d array (action sequence) - take the first action
+                pred_action = actions_np[0]
+            else:
+                print(f"Warning: Unexpected action shape at step {step}: {actions_np.shape}")
+                continue
 
             # Get ground truth action
-            gt_action = sample["action"]
+            gt_action = np.asarray(sample["action"])
+
+            # Debug: print action shapes for first few steps
+            if step < 3:
+                print(f"Step {step} - Pred action shape: {pred_action.shape}, GT action shape: {gt_action.shape}")
+                print(f"Step {step} - Pred action: {pred_action[:6]}")  # First 6 dims
+                print(f"Step {step} - GT action: {gt_action[:6]}")  # First 6 dims
 
             predicted_actions.append(pred_action)
             ground_truth_actions.append(gt_action)
 
         except Exception as e:
             print(f"Error at step {step}: {e}")
+            import traceback
+
+            traceback.print_exc()
             break
 
     if not predicted_actions:
@@ -176,6 +218,8 @@ def evaluate_single_trajectory(
     # Convert to numpy arrays
     pred_actions = np.array(predicted_actions)
     gt_actions = np.array(ground_truth_actions)
+
+    print(f"Final arrays - Pred: {pred_actions.shape}, GT: {gt_actions.shape}")
 
     # Calculate metrics
     metrics = calc_action_mse(pred_actions, gt_actions, action_dim=6)
