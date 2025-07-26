@@ -27,7 +27,7 @@ class EvalConfig:
     config_name: str = "pi0_so101_lora"
     """Config name to use for evaluation."""
 
-    checkpoint_path: str = "./checkpoints/pi0_so101_lora/my_experiment/19999"
+    checkpoint_path: str = "../pi0_lora_so101_checkpoints/so101_experiment/19999"
     """Path to the trained model checkpoint."""
 
     dataset_repo: str = "SGPatil/so101_pick_drop"
