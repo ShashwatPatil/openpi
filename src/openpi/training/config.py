@@ -722,7 +722,7 @@ _CONFIGS = [
             repo_id="SGPatil/so101-table-cleanup-train",
             assets=AssetsConfig(
             #     # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
-                asset_id="SGPatil/so101_pick_drop",
+                asset_id="SGPatil/so101-table-cleanup-train",
             ),
             default_prompt="do something",
             repack_transforms=_transforms.Group(
