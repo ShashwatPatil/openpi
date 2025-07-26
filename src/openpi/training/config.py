@@ -265,7 +265,10 @@ class LerobotSO101Config(DataConfigFactory):
             inputs=[
                 _transforms.RepackTransform(
                     {
-                        "images": {"front": "observation.images.front"},
+                        "images": {
+                            "front": "observation.images.front",
+                            "wrist": "observation.images.wrist"
+                        },
                         "state": "observation.state",
                         "actions": "action",
                     }
@@ -299,8 +302,6 @@ class LerobotSO101Config(DataConfigFactory):
             model_transforms=model_transforms,
             action_sequence_keys=self.action_sequence_keys,
         )
-
-
 
 @dataclasses.dataclass(frozen=True)
 class LeRobotLiberoDataConfig(DataConfigFactory):
@@ -711,15 +712,18 @@ _CONFIGS = [
         num_train_steps=20_000,
     ),
 
+    #
+    # Fine-tuning on SO101.
+    #
     TrainConfig(
         name="pi0_so101_lora",
         model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=LerobotSO101Config(
-            repo_id="SGPatil/so101_pick_drop",
-            assets=AssetsConfig(
-                # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
-                asset_id="SGPatil/so101_pick_drop",
-            ),
+            repo_id="SGPatil/so101-table-cleanup-train",
+            # assets=AssetsConfig(
+            #     # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
+            #     asset_id="SGPatil/so101_pick_drop",
+            # ),
             default_prompt="do something",
             repack_transforms=_transforms.Group(
                 inputs=[
@@ -727,6 +731,7 @@ _CONFIGS = [
                         {
                             "images": {
                                 "front": "observation.images.front",
+                                "wrist": "observation.images.wrist",
                             },
                             "state": "observation.state",
                             "actions": "action",
@@ -743,6 +748,31 @@ _CONFIGS = [
         ).get_freeze_filter(),
         # Turn off EMA for LoRA finetuning
         ema_decay=None,
+    ),
+    TrainConfig(
+        name="pi0_so101",
+        model=pi0.Pi0Config(action_dim=8),
+        data=LerobotSO101Config(
+            repo_id="SGPatil/so101-table-cleanup-train",
+            default_prompt="do something",
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "front": "observation.images.front",
+                                "wrist": "observation.images.wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                        }
+                    )
+                ]
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
+        num_train_steps=10_000,
+        batch_size=32,
     ),
     #
     # Fine-tuning DROID configs.

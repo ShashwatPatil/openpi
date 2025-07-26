@@ -38,25 +38,21 @@ class SO101Inputs(transforms.DataTransformFn):
     # The action dimension of the model. Will be used to pad state and actions.
     action_dim: int
 
-    # Determines which model will be used.
     model_type: _model.ModelType = _model.ModelType.PI0
 
     def __call__(self, data: dict) -> dict:
         state = transforms.pad_to_dim(data["state"], self.action_dim)
 
         # Parse and validate the image
-        base_image = _parse_image(data["images"]["front"])
-
-        # Provide all expected camera views (duplicate the single camera for missing views)
+        front_image = _parse_image(data["images"]["front"])
+        wrist_image = _parse_image(data["images"]["wrist"])
         images = {
-            "base_0_rgb": base_image,           # Main camera
-            "left_wrist_0_rgb": base_image,     # Duplicate for left wrist camera
-            "right_wrist_0_rgb": base_image,    # Duplicate for right wrist camera
+            "front": front_image,
+            "wrist": wrist_image,
         }
         image_masks = {
-            "base_0_rgb": np.True_,
-            "left_wrist_0_rgb": np.True_,      # You might want to set these to False
-            "right_wrist_0_rgb": np.True_,     # if you don't want to use duplicated images
+            "front": np.True_,
+            "wrist": np.True_,
         }
         
         inputs = {
