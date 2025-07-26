@@ -720,10 +720,10 @@ _CONFIGS = [
         model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=LerobotSO101Config(
             repo_id="SGPatil/so101-table-cleanup-train",
-            # assets=AssetsConfig(
+            assets=AssetsConfig(
             #     # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
-            #     asset_id="SGPatil/so101_pick_drop",
-            # ),
+                asset_id="SGPatil/so101_pick_drop",
+            ),
             default_prompt="do something",
             repack_transforms=_transforms.Group(
                 inputs=[
