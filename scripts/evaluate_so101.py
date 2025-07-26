@@ -15,7 +15,7 @@ def evaluate_model(checkpoint_path: str, config_name: str = "pi0_so101_lora", nu
 
     # Load config and model
     config = _config.get_config(config_name)
-    config = dataclasses.replace(config, batch_size=1)  # Use small batch size
+    config = dataclasses.replace(config, batch_size=16)  # Use small batch size
 
     params = _model.restore_params(checkpoint_path)
 
