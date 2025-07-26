@@ -132,11 +132,15 @@ def evaluate_single_trajectory(
 
     print(f"Evaluating trajectory {traj_id}...")
 
-    # Get trajectory data
-    traj_start_idx = sum(
-        dataset.episode_data_index["to"][i] - dataset.episode_data_index["from"][i] for i in range(traj_id)
-    )
-    traj_length = dataset.episode_data_index["to"][traj_id] - dataset.episode_data_index["from"][traj_id]
+    # Get trajectory data - fix the indexing issue
+    episode_starts = dataset.episode_data_index["from"]
+    episode_ends = dataset.episode_data_index["to"]
+
+    # Convert tensors to Python ints to avoid "len() of 0-d tensor" error
+    traj_start_idx = int(episode_starts[traj_id])
+    traj_end_idx = int(episode_ends[traj_id])
+    traj_length = traj_end_idx - traj_start_idx
+
     actual_steps = min(max_steps, traj_length)
 
     predicted_actions = []
@@ -146,8 +150,8 @@ def evaluate_single_trajectory(
         data_idx = traj_start_idx + step
 
         try:
-            # Get observation data
-            sample = dataset[data_idx]
+            # Get observation data - ensure data_idx is a Python int
+            sample = dataset[int(data_idx)]
 
             # Create observation with correct key mapping (same as training data)
             obs_dict = {
@@ -187,6 +191,9 @@ def evaluate_single_trajectory(
             elif actions_np.ndim == 2:
                 # 2-d array (action sequence) - take the first action
                 pred_action = actions_np[0]
+            elif actions_np.ndim == 3:
+                # 3-d array (batch, sequence, action) - take first batch, first action
+                pred_action = actions_np[0, 0]
             else:
                 print(f"Warning: Unexpected action shape at step {step}: {actions_np.shape}")
                 continue
