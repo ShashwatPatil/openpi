@@ -37,19 +37,21 @@ def debug_inference():
         else:
             print(f"  {key}: {type(value)} = {value}")
 
-    # Create observation
+    # Create observation with correct key mapping
+    # The policy expects the format after repack transforms are applied
     obs_dict = {
-        "observation/images/front": sample["observation.images.front"],
-        "observation/state": sample["observation.state"],
+        "images": {
+            "front": sample["observation.images.front"]  # Note: using the actual key from dataset
+        },
+        "state": sample["observation.state"],  # Note: using the actual key from dataset
         "prompt": "pick up the object",
     }
 
     print(f"\nRunning inference...")
-    print(f"Input image shape: {obs_dict['observation/images/front'].shape}")
-    print(f"Input state shape: {obs_dict['observation/state'].shape}")
+    print(f"Input image shape: {obs_dict['images']['front'].shape}")
+    print(f"Input state shape: {obs_dict['state'].shape}")
     print(f"Input prompt: {obs_dict['prompt']}")
 
-    # Run inference
     result = policy.infer(obs_dict)
 
     print(f"\nInference result:")

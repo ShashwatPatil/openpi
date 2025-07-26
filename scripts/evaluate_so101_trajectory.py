@@ -149,11 +149,11 @@ def evaluate_single_trajectory(
             # Get observation data
             sample = dataset[data_idx]
 
-            # Create observation for policy
+            # Create observation with correct key mapping (same as training data)
             obs_dict = {
-                "observation/images/front": sample["observation.images.front"],
-                "observation/state": sample["observation.state"],
-                "prompt": config.dataset_repo.split("/")[-1].replace("_", " "),  # Simple prompt from dataset name
+                "images": {"front": sample["observation.images.front"]},
+                "state": sample["observation.state"],
+                "prompt": sample.get("task", "pick up the object"),  # Use actual task or default
             }
 
             # Get policy prediction
@@ -162,12 +162,10 @@ def evaluate_single_trajectory(
             # Debug: print the result structure for the first few steps
             if step < 3:
                 print(f"Step {step} - Result keys: {result.keys()}")
-                print(
-                    f"Step {step} - Actions shape/type: {type(result['actions'])}, {getattr(result['actions'], 'shape', 'no shape')}"
-                )
                 if hasattr(result["actions"], "shape"):
                     print(f"Step {step} - Actions shape: {result['actions'].shape}")
-                    print(f"Step {step} - Actions value: {result['actions']}")
+                else:
+                    print(f"Step {step} - Actions type: {type(result['actions'])}")
 
             # Handle different action output formats
             actions = result["actions"]
@@ -199,8 +197,8 @@ def evaluate_single_trajectory(
             # Debug: print action shapes for first few steps
             if step < 3:
                 print(f"Step {step} - Pred action shape: {pred_action.shape}, GT action shape: {gt_action.shape}")
-                print(f"Step {step} - Pred action: {pred_action[:6]}")  # First 6 dims
-                print(f"Step {step} - GT action: {gt_action[:6]}")  # First 6 dims
+                print(f"Step {step} - Pred action: {pred_action}")
+                print(f"Step {step} - GT action: {gt_action}")
 
             predicted_actions.append(pred_action)
             ground_truth_actions.append(gt_action)
