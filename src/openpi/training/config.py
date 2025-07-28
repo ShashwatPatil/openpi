@@ -18,9 +18,9 @@ import openpi.models.pi0 as pi0
 import openpi.models.pi0_fast as pi0_fast
 import openpi.models.tokenizer as _tokenizer
 import openpi.policies.aloha_policy as aloha_policy
-import openpi.policies.so101_policy as so101_policy
 import openpi.policies.droid_policy as droid_policy
 import openpi.policies.libero_policy as libero_policy
+import openpi.policies.so101_policy as so101_policy
 import openpi.shared.download as _download
 import openpi.shared.normalize as _normalize
 import openpi.training.droid_rlds_dataset as droid_rlds_dataset
@@ -265,7 +265,7 @@ class LerobotSO101Config(DataConfigFactory):
             inputs=[
                 _transforms.RepackTransform(
                     {
-                        "images": {"front": "observation.images.front"},
+                        "images": {"front": "observation.images.front", "laptop": "observation.images.laptop"},
                         "state": "observation.state",
                         "actions": "action",
                     }
@@ -284,7 +284,7 @@ class LerobotSO101Config(DataConfigFactory):
         )
 
         if self.use_delta_joint_actions:
-            delta_action_mask = _transforms.make_bool_mask(5,-1)
+            delta_action_mask = _transforms.make_bool_mask(5, -1)
             data_transforms = data_transforms.push(
                 inputs=[_transforms.DeltaActions(delta_action_mask)],
                 outputs=[_transforms.AbsoluteActions(delta_action_mask)],
@@ -299,6 +299,7 @@ class LerobotSO101Config(DataConfigFactory):
             model_transforms=model_transforms,
             action_sequence_keys=self.action_sequence_keys,
         )
+
 
 @dataclasses.dataclass(frozen=True)
 class LeRobotLiberoDataConfig(DataConfigFactory):
@@ -708,7 +709,6 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
         num_train_steps=20_000,
     ),
-
     #
     # Fine-tuning on SO101.
     #
@@ -716,11 +716,11 @@ _CONFIGS = [
         name="pi0_so101_lora",
         model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=LerobotSO101Config(
-            repo_id="SGPatil/so101_pick_drop",
-            assets=AssetsConfig(
-                # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
-                asset_id="SGPatil/so101_pick_drop",
-            ),
+            repo_id="SGPatil/so101_table_cleanup",
+            # assets=AssetsConfig(
+            #     # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
+            #     asset_id="SGPatil/so101_pick_drop",
+            # ),
             default_prompt="do something",
             repack_transforms=_transforms.Group(
                 inputs=[
@@ -728,6 +728,7 @@ _CONFIGS = [
                         {
                             "images": {
                                 "front": "observation.images.front",
+                                "laptop": "observation.images.laptop",
                             },
                             "state": "observation.state",
                             "actions": "action",
@@ -740,7 +741,7 @@ _CONFIGS = [
         num_train_steps=20_000,
         batch_size=16,
         freeze_filter=pi0.Pi0Config(
-        paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
         ).get_freeze_filter(),
         # Turn off EMA for LoRA finetuning
         ema_decay=None,
