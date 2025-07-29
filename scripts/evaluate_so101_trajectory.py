@@ -30,7 +30,7 @@ class EvalConfig:
     checkpoint_path: str = "./pi0_lora_so101_checkpoints/so101_experiment/19999"
     """Path to the trained model checkpoint."""
 
-    dataset_repo: str = "SGPatil/so101_pick_drop"
+    dataset_repo: str = "SGPatil/so101_table_cleanup_2"
     """HuggingFace dataset repository."""
 
     num_trajectories: int = 5
