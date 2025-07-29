@@ -155,7 +155,10 @@ def evaluate_single_trajectory(
 
             # Create observation with correct key mapping (same as training data)
             obs_dict = {
-                "images": {"front": sample["observation.images.front"]},
+                "images": {
+                    "front": sample["observation.images.front"],
+                    "laptop": sample["observation.images.laptop"],
+                },
                 "state": sample["observation.state"],
                 "prompt": sample.get("task", "pick up the object"),  # Use actual task or default
             }
