@@ -144,7 +144,7 @@ def plot_action_trajectory_with_predictions(
     pred_actions = pred_actions[:, :action_dim]
     gt_actions = gt_actions[:, :action_dim]
 
-    fig, axes = plt.subplots(action_dim, 1, figsize=(12, 20))  # Single column, 6 rows, taller figure
+    fig, axes = plt.subplots(action_dim, 1, figsize=(10, 26))  # Single column, 6 rows, taller figure
     fig.suptitle(f"SO101 Action Trajectory with Prediction Horizon - Trajectory {traj_id}", fontsize=16)
 
     action_names = ["action dim 0", "action dim 1", "action dim 2", "action dim 3", "action dim 4", "action dim 5"]
