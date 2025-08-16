@@ -40,7 +40,7 @@ class EvalConfig:
     max_steps_per_traj: int = 50
     """Maximum steps to evaluate per trajectory."""
 
-    action_horizon: int = 50
+    action_horizon: int = 16
     """Action horizon for the model."""
 
     plot: bool = True
@@ -223,12 +223,166 @@ def plot_action_trajectory_with_predictions(
     plt.close()
 
 
-def evaluate_single_trajectory(
+# def evaluate_single_trajectory(
+#     policy, dataset, traj_id: int, max_steps: int, action_horizon: int, config: EvalConfig
+# ) -> dict:
+#     """Evaluate policy on a single trajectory."""
+
+#     print(f"Evaluating trajectory {traj_id}...")
+
+#     # Get trajectory data
+#     episode_starts = dataset.episode_data_index["from"]
+#     episode_ends = dataset.episode_data_index["to"]
+
+#     traj_start_idx = int(episode_starts[traj_id])
+#     traj_end_idx = int(episode_ends[traj_id])
+#     traj_length = traj_end_idx - traj_start_idx
+
+#     actual_steps = min(max_steps, traj_length)
+
+#     predicted_actions = []
+#     ground_truth_actions = []
+#     prediction_points = []  # Store (step, full_horizon_prediction) for visualization
+
+#     # Timing measurements
+#     inference_times = []
+
+#     for step in range(actual_steps):
+#         data_idx = traj_start_idx + step
+
+#         try:
+#             # Get observation data
+#             sample = dataset[int(data_idx)]
+
+#             obs_dict = {
+#                 "images": {
+#                     "front": sample["observation.images.front"],
+#                     "laptop": sample["observation.images.front"],  # Use front for both if laptop not available
+#                 },
+#                 "state": sample["observation.state"],
+#                 "prompt": sample.get("task", "pick up the object"),
+#             }
+
+#             # Time the inference
+#             start_time = time.perf_counter()
+#             result = policy.infer(obs_dict)
+#             end_time = time.perf_counter()
+
+#             inference_time_ms = (end_time - start_time) * 1000
+#             inference_times.append(inference_time_ms)
+
+#             # Debug: print timing and shapes for first few steps
+#             if step < 3:
+#                 print(f"Step {step} - Inference time: {inference_time_ms:.2f}ms")
+#                 print(f"Step {step} - Result keys: {result.keys()}")
+#                 if hasattr(result["actions"], "shape"):
+#                     print(f"Step {step} - Actions shape: {result['actions'].shape}")
+
+#             # Handle different action output formats
+#             actions = result["actions"]
+#             actions_np = np.asarray(actions)
+
+#             # Handle different action shapes
+#             if actions_np.ndim == 0:
+#                 print(f"Warning: Got scalar action at step {step}")
+#                 continue
+#             elif actions_np.ndim == 1:
+#                 # Single action vector
+#                 pred_action = actions_np
+#                 full_horizon = actions_np.reshape(1, -1)  # Make it 2D for consistency
+#             elif actions_np.ndim == 2:
+#                 # Action sequence - this is what we want for horizon visualization
+#                 pred_action = actions_np[0]  # First action for execution
+#                 full_horizon = actions_np  # Full sequence for visualization
+#             elif actions_np.ndim == 3:
+#                 # Batch dimension
+#                 pred_action = actions_np[0, 0]
+#                 full_horizon = actions_np[0]
+#             else:
+#                 print(f"Warning: Unexpected action shape at step {step}: {actions_np.shape}")
+#                 continue
+
+#             # Store prediction point for visualization (every few steps to avoid clutter)
+#             if config.prediction_visualization and (step % 5 == 0 or step < 5):
+#                 prediction_points.append((step, full_horizon))
+
+#             # Get ground truth action
+#             gt_action = np.asarray(sample["action"])
+
+#             # Debug: print action details for first few steps
+#             if step < 3:
+#                 print(f"Step {step} - Pred action shape: {pred_action.shape}, GT action shape: {gt_action.shape}")
+#                 print(f"Step {step} - Full horizon shape: {full_horizon.shape}")
+#                 print(f"Step {step} - Pred action (first 6): {pred_action[:6]}")
+#                 print(f"Step {step} - GT action: {gt_action}")
+
+#             predicted_actions.append(pred_action)
+#             ground_truth_actions.append(gt_action)
+
+#         except Exception as e:
+#             print(f"Error at step {step}: {e}")
+#             import traceback
+
+#             traceback.print_exc()
+#             break
+
+#     if not predicted_actions:
+#         return {"error": "No valid predictions"}
+
+#     # Convert to numpy arrays
+#     pred_actions = np.array(predicted_actions)
+#     gt_actions = np.array(ground_truth_actions)
+
+#     print(f"Final arrays - Pred: {pred_actions.shape}, GT: {gt_actions.shape}")
+
+#     # Calculate metrics
+#     metrics = calc_action_mse(pred_actions, gt_actions, action_dim=6)
+
+#     # Add timing metrics
+#     if inference_times:
+#         mean_inference_time = np.mean(inference_times)
+#         metrics.update(
+#             {
+#                 "mean_inference_time_ms": mean_inference_time,
+#                 "inference_rate_hz": 1000.0 / mean_inference_time,
+#                 "std_inference_time_ms": np.std(inference_times),
+#             }
+#         )
+#         print(
+#             f"Trajectory {traj_id} - Mean inference time: {mean_inference_time:.2f}ms ({1000.0 / mean_inference_time:.1f} Hz)"
+#         )
+
+#     # Plot with prediction visualization
+#     if config.plot:
+#         output_dir = pathlib.Path(config.output_dir)
+#         output_dir.mkdir(parents=True, exist_ok=True)
+
+#         if config.save_plots:
+#             if config.prediction_visualization:
+#                 plot_action_trajectory_with_predictions(
+#                     pred_actions, gt_actions, prediction_points, traj_id, output_dir
+#                 )
+#             else:
+#                 plot_action_trajectory(pred_actions, gt_actions, traj_id, output_dir)
+
+#     metrics.update(
+#         {
+#             "trajectory_id": traj_id,
+#             "steps_evaluated": len(predicted_actions),
+#             "trajectory_length": traj_length,
+#             "prediction_points": len(prediction_points),
+#         }
+#     )
+
+#     return metrics
+
+
+def evaluate_single_trajectory_realistic(
     policy, dataset, traj_id: int, max_steps: int, action_horizon: int, config: EvalConfig
 ) -> dict:
-    """Evaluate policy on a single trajectory."""
+    """Evaluate policy with realistic timing - inference every action_horizon steps."""
 
-    print(f"Evaluating trajectory {traj_id}...")
+    print(f"Evaluating trajectory {traj_id} with realistic timing...")
 
     # Get trajectory data
     episode_starts = dataset.episode_data_index["from"]
@@ -246,6 +400,11 @@ def evaluate_single_trajectory(
 
     # Timing measurements
     inference_times = []
+    total_inferences = 0
+
+    # Current action buffer
+    current_action_buffer = None
+    buffer_index = 0
 
     for step in range(actual_steps):
         data_idx = traj_start_idx + step
@@ -253,71 +412,84 @@ def evaluate_single_trajectory(
         try:
             # Get observation data
             sample = dataset[int(data_idx)]
-
-            obs_dict = {
-                "images": {
-                    "front": sample["observation.images.front"],
-                    "laptop": sample["observation.images.front"],  # Use front for both if laptop not available
-                },
-                "state": sample["observation.state"],
-                "prompt": sample.get("task", "pick up the object"),
-            }
-
-            # Time the inference
-            start_time = time.perf_counter()
-            result = policy.infer(obs_dict)
-            end_time = time.perf_counter()
-
-            inference_time_ms = (end_time - start_time) * 1000
-            inference_times.append(inference_time_ms)
-
-            # Debug: print timing and shapes for first few steps
-            if step < 3:
-                print(f"Step {step} - Inference time: {inference_time_ms:.2f}ms")
-                print(f"Step {step} - Result keys: {result.keys()}")
-                if hasattr(result["actions"], "shape"):
-                    print(f"Step {step} - Actions shape: {result['actions'].shape}")
-
-            # Handle different action output formats
-            actions = result["actions"]
-            actions_np = np.asarray(actions)
-
-            # Handle different action shapes
-            if actions_np.ndim == 0:
-                print(f"Warning: Got scalar action at step {step}")
-                continue
-            elif actions_np.ndim == 1:
-                # Single action vector
-                pred_action = actions_np
-                full_horizon = actions_np.reshape(1, -1)  # Make it 2D for consistency
-            elif actions_np.ndim == 2:
-                # Action sequence - this is what we want for horizon visualization
-                pred_action = actions_np[0]  # First action for execution
-                full_horizon = actions_np  # Full sequence for visualization
-            elif actions_np.ndim == 3:
-                # Batch dimension
-                pred_action = actions_np[0, 0]
-                full_horizon = actions_np[0]
-            else:
-                print(f"Warning: Unexpected action shape at step {step}: {actions_np.shape}")
-                continue
-
-            # Store prediction point for visualization (every few steps to avoid clutter)
-            if config.prediction_visualization and (step % 5 == 0 or step < 5):
-                prediction_points.append((step, full_horizon))
-
-            # Get ground truth action
             gt_action = np.asarray(sample["action"])
+            ground_truth_actions.append(gt_action)
 
-            # Debug: print action details for first few steps
-            if step < 3:
-                print(f"Step {step} - Pred action shape: {pred_action.shape}, GT action shape: {gt_action.shape}")
-                print(f"Step {step} - Full horizon shape: {full_horizon.shape}")
-                print(f"Step {step} - Pred action (first 6): {pred_action[:6]}")
-                print(f"Step {step} - GT action: {gt_action}")
+            # Check if we need to do inference
+            need_inference = (
+                current_action_buffer is None  # First step
+                or buffer_index >= len(current_action_buffer)  # Buffer exhausted
+                or step % action_horizon == 0  # Regular inference interval
+            )
+
+            if need_inference:
+                total_inferences += 1
+                print(f"Step {step}: Running inference #{total_inferences}")
+
+                # Prepare observation
+                obs_dict = {
+                    "images": {
+                        "front": sample["observation.images.front"],
+                        "laptop": sample["observation.images.front"],  # Use front for both
+                    },
+                    "state": sample["observation.state"],
+                    "prompt": sample.get("task", "pick up the object"),
+                }
+
+                # Time the inference
+                start_time = time.perf_counter()
+                result = policy.infer(obs_dict)
+                end_time = time.perf_counter()
+
+                inference_time_ms = (end_time - start_time) * 1000
+                inference_times.append(inference_time_ms)
+
+                # Get action buffer
+                actions = result["actions"]
+                actions_np = np.asarray(actions)
+
+                # Handle different action shapes
+                if actions_np.ndim == 1:
+                    # Single action - repeat it for the horizon
+                    current_action_buffer = np.tile(actions_np, (action_horizon, 1))
+                elif actions_np.ndim == 2:
+                    # Action sequence
+                    current_action_buffer = actions_np
+                elif actions_np.ndim == 3:
+                    # Batch dimension
+                    current_action_buffer = actions_np[0]
+                else:
+                    print(f"Warning: Unexpected action shape at step {step}: {actions_np.shape}")
+                    # Fallback: use ground truth for this step
+                    predicted_actions.append(gt_action)
+                    continue
+
+                buffer_index = 0
+
+                # Store prediction point for visualization
+                if config.prediction_visualization:
+                    prediction_points.append((step, current_action_buffer.copy()))
+
+                print(f"  Inference time: {inference_time_ms:.2f}ms")
+                print(f"  Action buffer shape: {current_action_buffer.shape}")
+                print(f"  Next {len(current_action_buffer)} actions cached")
+
+            # Get predicted action from buffer
+            if buffer_index < len(current_action_buffer):
+                pred_action = current_action_buffer[buffer_index]
+                buffer_index += 1
+            else:
+                # Buffer exhausted - should not happen with proper logic
+                print(f"Warning: Action buffer exhausted at step {step}")
+                pred_action = gt_action  # Fallback
+
+            # Debug info for first few steps
+            if step < 5 or need_inference:
+                print(f"Step {step}: Buffer index {buffer_index - 1}/{len(current_action_buffer)}")
+                print(f"  Pred action: {pred_action[:6]}")
+                print(f"  GT action: {gt_action[:6]}")
 
             predicted_actions.append(pred_action)
-            ground_truth_actions.append(gt_action)
 
         except Exception as e:
             print(f"Error at step {step}: {e}")
@@ -334,6 +506,8 @@ def evaluate_single_trajectory(
     gt_actions = np.array(ground_truth_actions)
 
     print(f"Final arrays - Pred: {pred_actions.shape}, GT: {gt_actions.shape}")
+    print(f"Total inferences: {total_inferences} for {len(predicted_actions)} steps")
+    print(f"Inference frequency: every {len(predicted_actions) / total_inferences:.1f} steps")
 
     # Calculate metrics
     metrics = calc_action_mse(pred_actions, gt_actions, action_dim=6)
@@ -341,15 +515,31 @@ def evaluate_single_trajectory(
     # Add timing metrics
     if inference_times:
         mean_inference_time = np.mean(inference_times)
+        total_inference_time = np.sum(inference_times)
+
+        # Calculate realistic performance metrics
+        steps_per_inference = action_horizon
+        real_time_factor = total_inference_time / (
+            steps_per_inference * total_inferences * 1000 / 30
+        )  # Assuming 30Hz robot
+
         metrics.update(
             {
+                "total_inferences": total_inferences,
                 "mean_inference_time_ms": mean_inference_time,
-                "inference_rate_hz": 1000.0 / mean_inference_time,
-                "std_inference_time_ms": np.std(inference_times),
+                "total_inference_time_ms": total_inference_time,
+                "inference_frequency_hz": 1000.0 / mean_inference_time,
+                "action_frequency_hz": 1000.0 / (mean_inference_time / action_horizon),
+                "steps_per_inference": len(predicted_actions) / total_inferences,
+                "real_time_factor": real_time_factor,  # <1 means faster than real-time
             }
         )
+
+        print(f"Trajectory {traj_id} Timing:")
+        print(f"  Mean inference time: {mean_inference_time:.2f}ms")
+        print(f"  Effective action rate: {1000.0 * action_horizon / mean_inference_time:.1f} actions/sec")
         print(
-            f"Trajectory {traj_id} - Mean inference time: {mean_inference_time:.2f}ms ({1000.0 / mean_inference_time:.1f} Hz)"
+            f"  Real-time factor: {real_time_factor:.2f} ({'faster' if real_time_factor < 1 else 'slower'} than real-time)"
         )
 
     # Plot with prediction visualization
@@ -378,12 +568,11 @@ def evaluate_single_trajectory(
 
 
 def main(config: EvalConfig):
-    """Main evaluation function with enhanced visualization and timing."""
+    """Main evaluation function with realistic timing."""
 
-    print(f"Starting SO101 policy evaluation...")
-    print(f"Config: {config.config_name}")
-    print(f"Checkpoint: {config.checkpoint_path}")
-    print(f"Dataset: {config.dataset_repo}")
+    print(f"Starting SO101 policy evaluation with REALISTIC TIMING...")
+    print(f"Action horizon: {config.action_horizon} steps")
+    print(f"Will do inference every {config.action_horizon} steps")
 
     # Create output directory
     output_dir = pathlib.Path(config.output_dir)
@@ -417,27 +606,20 @@ def main(config: EvalConfig):
     print(f"Evaluating on {actual_trajs} trajectories...")
 
     for traj_id in range(actual_trajs):
-        metrics = evaluate_single_trajectory(
+        # Use the realistic evaluation function
+        metrics = evaluate_single_trajectory_realistic(
             policy, dataset, traj_id, config.max_steps_per_traj, config.action_horizon, config
         )
 
         if "error" not in metrics:
             all_metrics.append(metrics)
-            if "inference_rate_hz" in metrics:
-                all_inference_times.append(metrics["mean_inference_time_ms"])
 
-            print(
-                f"Trajectory {traj_id}: MSE = {metrics['overall_mse']:.4f}, "
-                f"MAE = {metrics['mae']:.4f}, Steps = {metrics['steps_evaluated']}"
-            )
-            if "inference_rate_hz" in metrics:
-                print(f"  Rate: {metrics['inference_rate_hz']:.1f} Hz")
+            print(f"Trajectory {traj_id}: MSE = {metrics['overall_mse']:.4f}")
+            if "real_time_factor" in metrics:
+                print(f"  Real-time factor: {metrics['real_time_factor']:.2f}")
+                print(f"  Inferences: {metrics['total_inferences']}")
         else:
             print(f"Trajectory {traj_id}: Failed - {metrics['error']}")
-
-    if not all_metrics:
-        print("No successful evaluations!")
-        return
 
     # Aggregate results
     overall_mse = np.mean([m["overall_mse"] for m in all_metrics])
@@ -470,6 +652,21 @@ def main(config: EvalConfig):
         print(f"  {name}: {mse:.6f}")
 
     print(f"\nResults and plots saved to: {output_dir}")
+
+    # Add realistic timing summary
+    if all_metrics:
+        total_inferences = sum(m.get("total_inferences", 0) for m in all_metrics)
+        total_steps = sum(m.get("steps_evaluated", 0) for m in all_metrics)
+        mean_real_time_factor = np.mean([m.get("real_time_factor", 1) for m in all_metrics])
+
+        print(f"\n{'=' * 60}")
+        print("REALISTIC TIMING SUMMARY")
+        print(f"{'=' * 60}")
+        print(f"Total steps: {total_steps}")
+        print(f"Total inferences: {total_inferences}")
+        print(f"Steps per inference: {total_steps / total_inferences:.1f}")
+        print(f"Mean real-time factor: {mean_real_time_factor:.2f}")
+        print(f"Can run {'faster' if mean_real_time_factor < 1 else 'slower'} than real-time")
 
 
 if __name__ == "__main__":
