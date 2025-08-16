@@ -89,15 +89,13 @@ def plot_action_trajectory(
     pred_actions = pred_actions[:, :action_dim]
     gt_actions = gt_actions[:, :action_dim]
 
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig, axes = plt.subplots(action_dim, 1, figsize=(12, 18))  # Single column, 6 rows
     fig.suptitle(f"SO101 Action Trajectory Comparison - Trajectory {traj_id}", fontsize=16)
 
     action_names = ["action dim 0", "action dim 1", "action dim 2", "action dim 3", "action dim 4", "action dim 5"]
 
     for i in range(action_dim):
-        row = i // 3
-        col = i % 3
-        ax = axes[row, col]
+        ax = axes[i]  # No need for row/col calculation
 
         steps = range(len(pred_actions))
         ax.plot(steps, gt_actions[:, i], "b-", label="Ground Truth", linewidth=2, alpha=0.8)
@@ -146,15 +144,13 @@ def plot_action_trajectory_with_predictions(
     pred_actions = pred_actions[:, :action_dim]
     gt_actions = gt_actions[:, :action_dim]
 
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    fig, axes = plt.subplots(action_dim, 1, figsize=(12, 20))  # Single column, 6 rows, taller figure
     fig.suptitle(f"SO101 Action Trajectory with Prediction Horizon - Trajectory {traj_id}", fontsize=16)
 
     action_names = ["action dim 0", "action dim 1", "action dim 2", "action dim 3", "action dim 4", "action dim 5"]
 
     for i in range(action_dim):
-        row = i // 3
-        col = i % 3
-        ax = axes[row, col]
+        ax = axes[i]  # No need for row/col calculation
 
         steps = range(len(gt_actions))
 
