@@ -178,21 +178,21 @@ def plot_action_trajectory_with_predictions(
                 )
 
                 # Show the predicted horizon from this point
-                if horizon_prediction.shape[0] > 1:  # Multi-step prediction
-                    horizon_steps = range(pred_step, min(pred_step + len(horizon_prediction), len(gt_actions)))
-                    horizon_values = horizon_prediction[: len(horizon_steps), i]
+                # if horizon_prediction.shape[0] > 1:  # Multi-step prediction
+                #     horizon_steps = range(pred_step, min(pred_step + len(horizon_prediction), len(gt_actions)))
+                #     horizon_values = horizon_prediction[: len(horizon_steps), i]
 
-                    ax.plot(
-                        horizon_steps,
-                        horizon_values,
-                        "orange",
-                        linewidth=3,
-                        alpha=0.7,
-                        label="Prediction Horizon" if pred_step == prediction_points[0][0] else "",
-                    )
+                #     ax.plot(
+                #         horizon_steps,
+                #         horizon_values,
+                #         "orange",
+                #         linewidth=3,
+                #         alpha=0.7,
+                #         label="Prediction Horizon" if pred_step == prediction_points[0][0] else "",
+                #     )
 
-                    # Add markers for individual horizon predictions
-                    ax.scatter(horizon_steps, horizon_values, c="orange", s=30, alpha=0.8, zorder=5)
+                #     # Add markers for individual horizon predictions
+                #     ax.scatter(horizon_steps, horizon_values, c="orange", s=30, alpha=0.8, zorder=5)
 
         ax.set_title(f"{action_names[i]} Actions")
         ax.set_xlabel("Time Step")
