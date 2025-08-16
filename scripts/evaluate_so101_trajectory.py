@@ -1,6 +1,8 @@
 import dataclasses
+import json
 import logging
 import pathlib
+import pickle
 import time
 from typing import List, Literal
 import warnings
@@ -392,7 +394,8 @@ def evaluate_single_trajectory_realistic(
 
     predicted_actions = []
     ground_truth_actions = []
-    prediction_points = []  # Store (step, full_horizon_prediction) for visualization
+    prediction_points = []
+    detailed_inference_data = []  # ADD THIS LINE
 
     # Timing measurements
     inference_times = []
@@ -402,7 +405,7 @@ def evaluate_single_trajectory_realistic(
     current_action_buffer = None
     buffer_index = 0
 
-    for step in range(traj_length):  # Use full trajectory length
+    for step in range(traj_length):
         data_idx = traj_start_idx + step
 
         try:
@@ -413,9 +416,9 @@ def evaluate_single_trajectory_realistic(
 
             # Check if we need to do inference
             need_inference = (
-                current_action_buffer is None  # First step
-                or buffer_index >= len(current_action_buffer)  # Buffer exhausted
-                or step % action_horizon == 0  # Regular inference interval
+                current_action_buffer is None
+                or buffer_index >= len(current_action_buffer)
+                or step % action_horizon == 0
             )
 
             if need_inference:
@@ -426,7 +429,7 @@ def evaluate_single_trajectory_realistic(
                 obs_dict = {
                     "images": {
                         "front": sample["observation.images.front"],
-                        "laptop": sample["observation.images.front"],  # Use front for both
+                        "laptop": sample["observation.images.front"],
                     },
                     "state": sample["observation.state"],
                     "prompt": sample.get("task", "pick up the object"),
@@ -444,19 +447,29 @@ def evaluate_single_trajectory_realistic(
                 actions = result["actions"]
                 actions_np = np.asarray(actions)
 
+                # ADD THIS BLOCK - Store detailed inference data
+                inference_record = {
+                    "step": step,
+                    "inference_id": total_inferences,
+                    "inference_time_ms": inference_time_ms,
+                    "input_state": obs_dict["state"].tolist()
+                    if hasattr(obs_dict["state"], "tolist")
+                    else obs_dict["state"],
+                    "prompt": obs_dict["prompt"],
+                    "raw_actions_shape": str(actions_np.shape),
+                    "raw_actions": actions_np.tolist() if actions_np.size < 1000 else "too_large",
+                }
+                detailed_inference_data.append(inference_record)
+
                 # Handle different action shapes
                 if actions_np.ndim == 1:
-                    # Single action - repeat it for the horizon
                     current_action_buffer = np.tile(actions_np, (action_horizon, 1))
                 elif actions_np.ndim == 2:
-                    # Action sequence
                     current_action_buffer = actions_np
                 elif actions_np.ndim == 3:
-                    # Batch dimension
                     current_action_buffer = actions_np[0]
                 else:
                     print(f"Warning: Unexpected action shape at step {step}: {actions_np.shape}")
-                    # Fallback: use ground truth for this step
                     predicted_actions.append(gt_action)
                     continue
 
@@ -475,9 +488,8 @@ def evaluate_single_trajectory_realistic(
                 pred_action = current_action_buffer[buffer_index]
                 buffer_index += 1
             else:
-                # Buffer exhausted - should not happen with proper logic
                 print(f"Warning: Action buffer exhausted at step {step}")
-                pred_action = gt_action  # Fallback
+                pred_action = gt_action
 
             # Debug info for first few steps
             if step < 5 or need_inference:
@@ -513,9 +525,7 @@ def evaluate_single_trajectory_realistic(
         mean_inference_time = np.mean(inference_times)
         total_inference_time = np.sum(inference_times)
 
-        # Calculate realistic performance metrics
-        steps_per_inference = action_horizon
-        trajectory_duration_seconds = traj_length / 30.0  # Assuming 30Hz robot
+        trajectory_duration_seconds = traj_length / 30.0
         real_time_factor = total_inference_time / (trajectory_duration_seconds * 1000)
 
         metrics.update(
@@ -526,7 +536,7 @@ def evaluate_single_trajectory_realistic(
                 "inference_frequency_hz": 1000.0 / mean_inference_time,
                 "action_frequency_hz": 1000.0 / (mean_inference_time / action_horizon),
                 "steps_per_inference": len(predicted_actions) / total_inferences,
-                "real_time_factor": real_time_factor,  # <1 means faster than real-time
+                "real_time_factor": real_time_factor,
                 "trajectory_duration_s": trajectory_duration_seconds,
                 "total_compute_time_s": total_inference_time / 1000.0,
             }
@@ -541,11 +551,22 @@ def evaluate_single_trajectory_realistic(
             f"  Real-time factor: {real_time_factor:.2f} ({'faster' if real_time_factor < 1 else 'slower'} than real-time)"
         )
 
-    # Plot with prediction visualization
-    if config.plot:
-        output_dir = pathlib.Path(config.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    # ADD THIS BLOCK - Save trajectory data
+    output_dir = pathlib.Path(config.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    save_trajectory_data(
+        pred_actions,
+        gt_actions,
+        prediction_points,
+        metrics,
+        traj_id,
+        output_dir,
+        inference_times,
+        detailed_inference_data,
+    )
 
+    # Existing plotting code remains unchanged
+    if config.plot:
         if config.save_plots:
             if config.prediction_visualization:
                 plot_action_trajectory_with_predictions(
@@ -560,11 +581,82 @@ def evaluate_single_trajectory_realistic(
             "steps_evaluated": len(predicted_actions),
             "trajectory_length": traj_length,
             "prediction_points": len(prediction_points),
-            "trajectory_completion": len(predicted_actions) / traj_length,  # Should be 1.0 if completed
+            "trajectory_completion": len(predicted_actions) / traj_length,
         }
     )
 
     return metrics
+
+
+def save_trajectory_data(
+    pred_actions: np.ndarray,
+    gt_actions: np.ndarray,
+    prediction_points: list,
+    metrics: dict,
+    traj_id: int,
+    save_path: pathlib.Path,
+    inference_times: list = None,
+    detailed_inference_data: list = None,
+):
+    """Save detailed trajectory data for offline analysis."""
+
+    # Create trajectory-specific directory
+    traj_dir = save_path / f"trajectory_{traj_id}"
+    traj_dir.mkdir(parents=True, exist_ok=True)
+
+    # Prepare data for export
+    trajectory_data = {
+        "trajectory_id": traj_id,
+        "metadata": {
+            "trajectory_length": metrics.get("trajectory_length", len(gt_actions)),
+            "steps_evaluated": metrics.get("steps_evaluated", len(pred_actions)),
+            "completion_rate": metrics.get("trajectory_completion", 1.0),
+            "prediction_points_count": len(prediction_points),
+        },
+        "metrics": metrics,
+        "arrays": {
+            "predicted_actions": pred_actions.tolist(),
+            "ground_truth_actions": gt_actions.tolist(),
+        },
+        "prediction_points": [
+            {"step": int(step), "horizon_prediction": horizon.tolist() if hasattr(horizon, "tolist") else horizon}
+            for step, horizon in prediction_points
+        ],
+        "timing": inference_times if inference_times else [],
+        "detailed_inference_data": detailed_inference_data if detailed_inference_data else [],
+    }
+
+    # Save as JSON (human-readable)
+    json_path = traj_dir / "data.json"
+    with open(json_path, "w") as f:
+        json.dump(trajectory_data, f, indent=2)
+
+    # Save as pickle (preserves numpy arrays exactly)
+    pickle_path = traj_dir / "data.pkl"
+    with open(pickle_path, "wb") as f:
+        pickle.dump(
+            {
+                "pred_actions": pred_actions,
+                "gt_actions": gt_actions,
+                "prediction_points": prediction_points,
+                "metrics": metrics,
+                "inference_times": inference_times,
+                "detailed_inference_data": detailed_inference_data,
+            },
+            f,
+        )
+
+    # Save individual arrays as NPZ
+    npz_path = traj_dir / "arrays.npz"
+    np.savez(
+        npz_path,
+        predicted_actions=pred_actions,
+        ground_truth_actions=gt_actions,
+        **{f"horizon_{i}": horizon for i, (step, horizon) in enumerate(prediction_points)},
+    )
+
+    print(f"  Saved trajectory data to: {traj_dir}")
+    return traj_dir
 
 
 def main(config: EvalConfig):
@@ -683,6 +775,35 @@ def main(config: EvalConfig):
         print(f"Average steps per inference: {total_steps / total_inferences:.1f}")
         print(f"Mean real-time factor: {mean_real_time_factor:.2f}")
         print(f"Can run {'faster' if mean_real_time_factor < 1 else 'slower'} than real-time")
+
+    # Save summary data
+    if all_metrics:
+        summary_data = {
+            "config": dataclasses.asdict(config),
+            "dataset_info": {
+                "total_samples": len(dataset),
+                "total_episodes": len(episode_starts),
+                "trajectory_lengths": trajectory_lengths,
+            },
+            "evaluation_summary": {
+                "trajectories_evaluated": len(all_metrics),
+                "total_steps": total_steps,
+                "total_trajectory_steps": total_trajectory_steps,
+                "completion_rate": completion_rate,
+                "overall_mse": overall_mse,
+                "overall_mae": overall_mae,
+            },
+            "all_trajectory_metrics": all_metrics,
+        }
+
+        # Save summary
+        summary_path = output_dir / "evaluation_summary.json"
+        with open(summary_path, "w") as f:
+            json.dump(summary_data, f, indent=2, default=str)
+
+        print(f"\nData exported to: {output_dir}")
+        print(f"  - evaluation_summary.json (overall results)")
+        print(f"  - trajectory_X/ (per-trajectory detailed data)")
 
     print(f"\nResults and plots saved to: {output_dir}")
 
