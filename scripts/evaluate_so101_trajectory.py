@@ -604,6 +604,16 @@ def save_trajectory_data(
     traj_dir = save_path / f"trajectory_{traj_id}"
     traj_dir.mkdir(parents=True, exist_ok=True)
 
+    # Convert numpy arrays in metrics to lists for JSON serialization
+    metrics_json_safe = {}
+    for key, value in metrics.items():
+        if isinstance(value, np.ndarray):
+            metrics_json_safe[key] = value.tolist()
+        elif isinstance(value, (np.integer, np.floating)):
+            metrics_json_safe[key] = value.item()
+        else:
+            metrics_json_safe[key] = value
+
     # Prepare data for export
     trajectory_data = {
         "trajectory_id": traj_id,
@@ -613,7 +623,7 @@ def save_trajectory_data(
             "completion_rate": metrics.get("trajectory_completion", 1.0),
             "prediction_points_count": len(prediction_points),
         },
-        "metrics": metrics,
+        "metrics": metrics_json_safe,
         "arrays": {
             "predicted_actions": pred_actions.tolist(),
             "ground_truth_actions": gt_actions.tolist(),
@@ -639,7 +649,7 @@ def save_trajectory_data(
                 "pred_actions": pred_actions,
                 "gt_actions": gt_actions,
                 "prediction_points": prediction_points,
-                "metrics": metrics,
+                "metrics": metrics,  # Keep original metrics with numpy arrays
                 "inference_times": inference_times,
                 "detailed_inference_data": detailed_inference_data,
             },
