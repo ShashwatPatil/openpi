@@ -155,11 +155,11 @@ def plot_action_trajectory_with_predictions(
         steps = range(len(gt_actions))
 
         # Plot ground truth trajectory
-        ax.plot(steps, gt_actions[:, i], "b-", label="Ground Truth", linewidth=2, alpha=0.8)
+        ax.plot(steps, gt_actions[:, i], "o-", label="Ground Truth", linewidth=2, alpha=0.8)
 
         # Plot single-step predictions
         pred_steps = range(len(pred_actions))
-        ax.plot(pred_steps, pred_actions[:, i], "r--", label="Predictions", linewidth=2, alpha=0.8)
+        ax.plot(pred_steps, pred_actions[:, i], "g-", label="Predictions", linewidth=2, alpha=0.8)
 
         # Plot prediction points and horizons
         for pred_step, horizon_prediction in prediction_points:
