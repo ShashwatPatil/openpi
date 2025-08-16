@@ -168,7 +168,7 @@ def plot_action_trajectory_with_predictions(
                 ax.plot(
                     pred_step,
                     gt_actions[pred_step, i],
-                    "go",
+                    "bo",
                     markersize=8,
                     label="Prediction Point" if pred_step == prediction_points[0][0] else "",
                 )
