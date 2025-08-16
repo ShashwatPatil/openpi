@@ -716,7 +716,7 @@ _CONFIGS = [
         name="pi0_so101_lora",
         model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=LerobotSO101Config(
-            repo_id="SGPatil/so101_table_cleanup",
+            repo_id="SGPatil/so101_table_cleanup_2",
             # assets=AssetsConfig(
             #     # assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
             #     asset_id="SGPatil/so101_pick_drop",
