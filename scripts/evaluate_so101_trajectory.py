@@ -190,7 +190,7 @@ def plot_action_trajectory_with_predictions(
                 #     # Add markers for individual horizon predictions
                 #     ax.scatter(horizon_steps, horizon_values, c="orange", s=30, alpha=0.8, zorder=5)
 
-        ax.set_title(f"{action_names[i]} Actions")
+        ax.set_title(f"{action_names[i]}")
         ax.set_xlabel("Time Step")
         ax.set_ylabel("Action Value")
         ax.legend()
@@ -198,14 +198,14 @@ def plot_action_trajectory_with_predictions(
 
         # Calculate and display MSE for this dimension
         mse = np.mean((pred_actions[:, i] - gt_actions[: len(pred_actions), i]) ** 2)
-        ax.text(
-            0.02,
-            0.98,
-            f"MSE: {mse:.4f}",
-            transform=ax.transAxes,
-            verticalalignment="top",
-            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
-        )
+        # ax.text(
+        #     0.02,
+        #     0.98,
+        #     f"MSE: {mse:.4f}",
+        #     transform=ax.transAxes,
+        #     verticalalignment="top",
+        #     bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        # )
 
     plt.tight_layout()
 
