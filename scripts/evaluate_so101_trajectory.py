@@ -374,9 +374,9 @@ def plot_action_trajectory_with_predictions(
 
 
 def evaluate_single_trajectory_realistic(
-    policy, dataset, traj_id: int, max_steps: int, action_horizon: int, config: EvalConfig
+    policy, dataset, traj_id: int, action_horizon: int, config: EvalConfig
 ) -> dict:
-    """Evaluate policy with realistic timing - inference every action_horizon steps."""
+    """Evaluate policy with realistic timing for the entire trajectory."""
 
     print(f"Evaluating trajectory {traj_id} with realistic timing...")
 
@@ -388,7 +388,7 @@ def evaluate_single_trajectory_realistic(
     traj_end_idx = int(episode_ends[traj_id])
     traj_length = traj_end_idx - traj_start_idx
 
-    actual_steps = min(max_steps, traj_length)
+    print(f"  Trajectory length: {traj_length} steps")
 
     predicted_actions = []
     ground_truth_actions = []
@@ -402,7 +402,7 @@ def evaluate_single_trajectory_realistic(
     current_action_buffer = None
     buffer_index = 0
 
-    for step in range(actual_steps):
+    for step in range(traj_length):  # Use full trajectory length
         data_idx = traj_start_idx + step
 
         try:
@@ -420,7 +420,7 @@ def evaluate_single_trajectory_realistic(
 
             if need_inference:
                 total_inferences += 1
-                print(f"Step {step}: Running inference #{total_inferences}")
+                print(f"Step {step}/{traj_length}: Running inference #{total_inferences}")
 
                 # Prepare observation
                 obs_dict = {
@@ -515,9 +515,8 @@ def evaluate_single_trajectory_realistic(
 
         # Calculate realistic performance metrics
         steps_per_inference = action_horizon
-        real_time_factor = total_inference_time / (
-            steps_per_inference * total_inferences * 1000 / 30
-        )  # Assuming 30Hz robot
+        trajectory_duration_seconds = traj_length / 30.0  # Assuming 30Hz robot
+        real_time_factor = total_inference_time / (trajectory_duration_seconds * 1000)
 
         metrics.update(
             {
@@ -528,11 +527,15 @@ def evaluate_single_trajectory_realistic(
                 "action_frequency_hz": 1000.0 / (mean_inference_time / action_horizon),
                 "steps_per_inference": len(predicted_actions) / total_inferences,
                 "real_time_factor": real_time_factor,  # <1 means faster than real-time
+                "trajectory_duration_s": trajectory_duration_seconds,
+                "total_compute_time_s": total_inference_time / 1000.0,
             }
         )
 
         print(f"Trajectory {traj_id} Timing:")
         print(f"  Mean inference time: {mean_inference_time:.2f}ms")
+        print(f"  Total trajectory time: {trajectory_duration_seconds:.1f}s")
+        print(f"  Total compute time: {total_inference_time / 1000.0:.2f}s")
         print(f"  Effective action rate: {1000.0 * action_horizon / mean_inference_time:.1f} actions/sec")
         print(
             f"  Real-time factor: {real_time_factor:.2f} ({'faster' if real_time_factor < 1 else 'slower'} than real-time)"
@@ -557,6 +560,7 @@ def evaluate_single_trajectory_realistic(
             "steps_evaluated": len(predicted_actions),
             "trajectory_length": traj_length,
             "prediction_points": len(prediction_points),
+            "trajectory_completion": len(predicted_actions) / traj_length,  # Should be 1.0 if completed
         }
     )
 
@@ -564,11 +568,11 @@ def evaluate_single_trajectory_realistic(
 
 
 def main(config: EvalConfig):
-    """Main evaluation function with realistic timing."""
+    """Main evaluation function with realistic timing for full trajectories."""
 
     print(f"Starting SO101 policy evaluation with REALISTIC TIMING...")
     print(f"Action horizon: {config.action_horizon} steps")
-    print(f"Will do inference every {config.action_horizon} steps")
+    print(f"Will evaluate ENTIRE trajectories (not limited to {config.max_steps_per_traj} steps)")
 
     # Create output directory
     output_dir = pathlib.Path(config.output_dir)
@@ -592,77 +596,95 @@ def main(config: EvalConfig):
     print(f"Dataset loaded: {len(dataset)} samples")
     print(f"Number of episodes: {len(dataset.episode_data_index['from'])}")
 
+    # Show trajectory lengths
+    episode_starts = dataset.episode_data_index["from"]
+    episode_ends = dataset.episode_data_index["to"]
+    trajectory_lengths = [int(episode_ends[i]) - int(episode_starts[i]) for i in range(len(episode_starts))]
+
+    print(
+        f"Trajectory lengths: min={min(trajectory_lengths)}, max={max(trajectory_lengths)}, mean={np.mean(trajectory_lengths):.1f}"
+    )
+
     # Evaluate on multiple trajectories
     all_metrics = []
-    all_inference_times = []
 
     num_episodes = len(dataset.episode_data_index["from"])
     actual_trajs = min(config.num_trajectories, num_episodes)
 
-    print(f"Evaluating on {actual_trajs} trajectories...")
+    print(f"Evaluating on {actual_trajs} FULL trajectories...")
 
     for traj_id in range(actual_trajs):
-        # Use the realistic evaluation function
-        metrics = evaluate_single_trajectory_realistic(
-            policy, dataset, traj_id, config.max_steps_per_traj, config.action_horizon, config
-        )
+        print(f"\n{'=' * 50}")
+        print(f"TRAJECTORY {traj_id + 1}/{actual_trajs}")
+        print(f"{'=' * 50}")
+
+        # Use the realistic evaluation function (removed max_steps parameter)
+        metrics = evaluate_single_trajectory_realistic(policy, dataset, traj_id, config.action_horizon, config)
 
         if "error" not in metrics:
             all_metrics.append(metrics)
 
-            print(f"Trajectory {traj_id}: MSE = {metrics['overall_mse']:.4f}")
+            print(f"\nTrajectory {traj_id} Results:")
+            print(f"  Length: {metrics['trajectory_length']} steps")
+            print(f"  Evaluated: {metrics['steps_evaluated']} steps")
+            print(f"  Completion: {metrics['trajectory_completion']:.1%}")
+            print(f"  MSE: {metrics['overall_mse']:.4f}")
+            print(f"  MAE: {metrics['mae']:.4f}")
             if "real_time_factor" in metrics:
                 print(f"  Real-time factor: {metrics['real_time_factor']:.2f}")
-                print(f"  Inferences: {metrics['total_inferences']}")
+                print(f"  Total inferences: {metrics['total_inferences']}")
         else:
             print(f"Trajectory {traj_id}: Failed - {metrics['error']}")
+
+    if not all_metrics:
+        print("No successful evaluations!")
+        return
 
     # Aggregate results
     overall_mse = np.mean([m["overall_mse"] for m in all_metrics])
     overall_mae = np.mean([m["mae"] for m in all_metrics])
+    total_steps = sum(m["steps_evaluated"] for m in all_metrics)
+    total_trajectory_steps = sum(m["trajectory_length"] for m in all_metrics)
+    completion_rate = np.mean([m["trajectory_completion"] for m in all_metrics])
 
-    # Timing summary
-    if all_inference_times:
-        mean_time = np.mean(all_inference_times)
-        mean_rate = 1000.0 / mean_time
-
-        print(f"\n{'=' * 60}")
-        print("TIMING SUMMARY")
-        print(f"{'=' * 60}")
-        print(f"Mean inference time: {mean_time:.2f} ± {np.std(all_inference_times):.2f} ms")
-        print(f"Mean inference rate: {mean_rate:.1f} Hz")
-
-    # Existing summary code...
+    # Per-dimension analysis
     all_mse_per_dim = np.array([m["mse_per_dim"] for m in all_metrics])
     mean_mse_per_dim = np.mean(all_mse_per_dim, axis=0)
 
     print(f"\n{'=' * 60}")
-    print("EVALUATION RESULTS SUMMARY")
+    print("FULL TRAJECTORY EVALUATION RESULTS")
     print(f"{'=' * 60}")
     print(f"Trajectories evaluated: {len(all_metrics)}")
-    print(f"Overall MSE: {overall_mse:.6f}")
-    print(f"Overall MAE: {overall_mae:.6f}")
+    print(f"Total trajectory steps: {total_trajectory_steps}")
+    print(f"Total evaluated steps: {total_steps}")
+    print(f"Average completion rate: {completion_rate:.1%}")
+    print(f"\nAccuracy Metrics:")
+    print(f"  Overall MSE: {overall_mse:.6f}")
+    print(f"  Overall MAE: {overall_mae:.6f}")
     print(f"\nPer-dimension MSE:")
-    action_names = ["X", "Y", "Z", "Roll", "Pitch", "Yaw"]
+    action_names = ["action dim 0", "action dim 1", "action dim 2", "action dim 3", "action dim 4", "action dim 5"]
     for i, (name, mse) in enumerate(zip(action_names, mean_mse_per_dim)):
         print(f"  {name}: {mse:.6f}")
 
-    print(f"\nResults and plots saved to: {output_dir}")
-
-    # Add realistic timing summary
-    if all_metrics:
-        total_inferences = sum(m.get("total_inferences", 0) for m in all_metrics)
-        total_steps = sum(m.get("steps_evaluated", 0) for m in all_metrics)
-        mean_real_time_factor = np.mean([m.get("real_time_factor", 1) for m in all_metrics])
+    # Realistic timing summary
+    if all_metrics and "real_time_factor" in all_metrics[0]:
+        total_inferences = sum(m["total_inferences"] for m in all_metrics)
+        mean_real_time_factor = np.mean([m["real_time_factor"] for m in all_metrics])
+        total_compute_time = sum(m["total_compute_time_s"] for m in all_metrics)
+        total_trajectory_time = sum(m["trajectory_duration_s"] for m in all_metrics)
 
         print(f"\n{'=' * 60}")
         print("REALISTIC TIMING SUMMARY")
         print(f"{'=' * 60}")
-        print(f"Total steps: {total_steps}")
+        print(f"Total trajectory time: {total_trajectory_time:.1f}s")
+        print(f"Total compute time: {total_compute_time:.1f}s")
+        print(f"Compute overhead: {100 * total_compute_time / total_trajectory_time:.1f}%")
         print(f"Total inferences: {total_inferences}")
-        print(f"Steps per inference: {total_steps / total_inferences:.1f}")
+        print(f"Average steps per inference: {total_steps / total_inferences:.1f}")
         print(f"Mean real-time factor: {mean_real_time_factor:.2f}")
         print(f"Can run {'faster' if mean_real_time_factor < 1 else 'slower'} than real-time")
+
+    print(f"\nResults and plots saved to: {output_dir}")
 
 
 if __name__ == "__main__":
