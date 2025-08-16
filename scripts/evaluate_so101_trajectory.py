@@ -149,7 +149,7 @@ def plot_action_trajectory_with_predictions(
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
     fig.suptitle(f"SO101 Action Trajectory with Prediction Horizon - Trajectory {traj_id}", fontsize=16)
 
-    action_names = ["X", "Y", "Z", "Roll", "Pitch", "Yaw"]
+    action_names = ["action dim 0", "action dim 1", "action dim 2", "action dim 3", "action dim 4", "action dim 5"]
 
     for i in range(action_dim):
         row = i // 3
